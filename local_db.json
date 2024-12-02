@@ -1,0 +1,170 @@
+[
+    {
+        "code": "def factorial(n): return 1 if n == 0 else n * factorial(n-1)",
+        "analysis": [
+            "Function: factorial",
+            "If statement found",
+            "Recursive function call"
+        ],
+        "hints": [
+            "Ensure the base case is correctly defined to prevent infinite recursion.",
+            "Check if the recursive step correctly narrows the problem space."
+        ]
+    },
+    {
+        "code": "for i in range(10): print(i)",
+        "analysis": [
+            "For loop found",
+            "Variable assignment"
+        ],
+        "hints": [
+            "Loops should iterate over the correct range or collection.",
+            "Ensure the loop body performs the intended logic."
+        ]
+    },
+    {
+        "code": "while x > 0: x -= 1",
+        "analysis": [
+            "While loop found",
+            "Variable assignment"
+        ],
+        "hints": [
+            "Check the condition to ensure the loop terminates correctly.",
+            "Ensure the variable being modified in the loop condition is updated properly."
+        ]
+    },
+    {
+        "code": "numbers = [1, 2, 3, 4, 5]",
+        "analysis": [
+            "List creation",
+            "Variable assignment"
+        ],
+        "hints": [
+            "Lists can store multiple values and are indexed starting from 0.",
+            "Consider list comprehensions for concise operations."
+        ]
+    },
+    {
+        "code": "if x > 5: print('Greater') else: print('Smaller')",
+        "analysis": [
+            "If statement found",
+            "Else statement found"
+        ],
+        "hints": [
+            "Ensure conditions in an if-else block are mutually exclusive.",
+            "Consider edge cases where variables might not satisfy any condition."
+        ]
+    },
+    {
+        "code": "try: x = int(input()) except ValueError: print('Invalid input')",
+        "analysis": [
+            "Try-Except block found",
+            "Function call: input()",
+            "Function call: int()"
+        ],
+        "hints": [
+            "Use try-except blocks to handle exceptions gracefully.",
+            "Ensure you test for the specific exceptions relevant to your code."
+        ]
+    },
+    {
+        "code": "x = [i**2 for i in range(5)]",
+        "analysis": [
+            "List comprehension found",
+            "For loop found"
+        ],
+        "hints": [
+            "List comprehensions are a concise way to create lists.",
+            "Check the expression inside the comprehension for correctness."
+        ]
+    },
+    {
+        "code": "class MyClass: def __init__(self): self.value = 0",
+        "analysis": [
+            "Class definition: MyClass",
+            "Function: __init__",
+            "Variable assignment"
+        ],
+        "hints": [
+            "Define class attributes in the __init__ method.",
+            "Use classes to encapsulate related data and behavior."
+        ]
+    },
+    {
+        "code": "import math\nresult = math.sqrt(16)",
+        "analysis": [
+            "Import statement found",
+            "Function call: math.sqrt"
+        ],
+        "hints": [
+            "Ensure you import the correct module before using it.",
+            "Check if the function call's arguments are valid for the desired operation."
+        ]
+    },
+    {
+        "code": "with open('file.txt', 'r') as file: data = file.read()",
+        "analysis": [
+            "With statement found",
+            "File operation: read"
+        ],
+        "hints": [
+            "Use with statements for file handling to ensure resources are closed properly.",
+            "Check if the file path and mode ('r', 'w', etc.) are correct."
+        ]
+    },
+    {
+        "code": "from random import randint\nnum = randint(1, 10)",
+        "analysis": [
+            "Import statement found",
+            "Function call: randint"
+        ],
+        "hints": [
+            "Use random functions to generate random numbers within a range.",
+            "Ensure imported functions are used correctly in the code."
+        ]
+    },
+    {
+        "code": "x = [1, 2, 3]\nfor i in x: print(i)",
+        "analysis": [
+            "List creation",
+            "For loop found"
+        ],
+        "hints": [
+            "Iterate directly over lists using for loops for simplicity.",
+            "Ensure the list contains the expected elements before iteration."
+        ]
+    },
+    {
+        "code": "a, b = 1, 2\nsum = a + b",
+        "analysis": [
+            "Multiple assignment",
+            "Variable assignment"
+        ],
+        "hints": [
+            "Multiple assignment is a concise way to assign values to multiple variables.",
+            "Check if the arithmetic operation uses the correct variables."
+        ]
+    },
+    {
+        "code": "def add(a, b): return a + b",
+        "analysis": [
+            "Function: add",
+            "Return statement found"
+        ],
+        "hints": [
+            "Ensure the function has the correct parameters and return type.",
+            "Test the function with different inputs to confirm correctness."
+        ]
+    },
+    {
+        "code": "numbers = [1, 2, 3]\nif 4 in numbers: print('Found')",
+        "analysis": [
+            "List creation",
+            "If statement found"
+        ],
+        "hints": [
+            "Use the `in` operator to check for membership in lists.",
+            "Ensure the condition matches the intended logic."
+        ]
+    }
+]
