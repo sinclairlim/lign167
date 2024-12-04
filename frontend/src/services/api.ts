@@ -1,13 +1,43 @@
-import axios from "axios";
+import axios from 'axios';
 
-export const getExplanation = async (nodeLabel: string): Promise<string> => {
-    try {
-        const response = await axios.post("http://127.0.0.1:5000/api/explain", {
-            nodeLabel,
-        });
-        return response.data.explanation;
-    } catch (error: any) {
-        console.error("Error fetching explanation:", error.message);
-        throw new Error("Failed to fetch explanation from the backend.");
-    }
+const API_BASE_URL = 'http://localhost:5000'; // Ensure this matches your backend
+
+interface AnalyzeCodeResponse {
+  nodes: any[];
+  edges: any[];
+  high_level_feedback: {
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+    recommendations: string[];
+  };
+}
+
+export const analyzeCode = async (code: string): Promise<AnalyzeCodeResponse> => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/analyze_code`, { code });
+    return response.data;
+  } catch (error) {
+    console.error('Error in analyzeCode:', error);
+    throw error;
+  }
+};
+
+interface GetExplanationResponse {
+  explanation: {
+    description: string;
+    concepts?: string[];
+    issues?: string[];
+    suggestions?: string[];
+  };
+}
+
+export const getExplanation = async (nodeInfo: string): Promise<GetExplanationResponse> => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/get_explanation`, { nodeInfo });
+    return response.data;
+  } catch (error) {
+    console.error('Error in getExplanation:', error);
+    throw error;
+  }
 };
