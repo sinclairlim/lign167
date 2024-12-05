@@ -19,30 +19,31 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 def analyze_code():
     print("Running analyze_code function")
     data = request.json
-    if not data or "code" not in data:
-        return jsonify({"error": "Missing code in request body"}), 400
+    if not data or "code" not in data or "intent" not in data:
+        return jsonify({"error": "Missing code or intent in request body"}), 400
 
     code = data["code"]
+    intent = data["intent"]
 
     try:
-        # Parse code
-        tree = ast.parse(code)
+        # Generate conceptual graph using GPT-4
+        conceptual_graph = generate_conceptual_graph(code, intent)
 
-        # Analyze the code tree
-        analysis_result = analyze_code_tree(tree)
-
-        # Generate high-level feedback using gpt-4o-2024-11-20
+        # Generate high-level feedback using GPT-4
         high_level_feedback = get_high_level_feedback(code)
 
         # Return nodes, edges, and high-level feedback to the frontend
         return jsonify({
-            "nodes": analysis_result["nodes"],
-            "edges": analysis_result["edges"],
+            "nodes": conceptual_graph["nodes"],
+            "edges": conceptual_graph["edges"],
             "high_level_feedback": high_level_feedback
         })
+    except ValueError as ve:
+        print(f"ValueError occurred: {ve}")
+        return jsonify({"error": str(ve)}), 500
     except Exception as e:
         print(f"Error occurred: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "An unexpected error occurred."}), 500
 
 def generate_conceptual_graph(code, intent):
     prompt = (
@@ -68,49 +69,75 @@ def generate_conceptual_graph(code, intent):
         f"Here is the code:\n```python\n{code}\n```"
     )
 
-    node_info = data["nodeInfo"]
+    completion = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are an AI that outputs only JSON objects as responses, without any explanations or additional text.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=1000,
+    )
+
+    response_text = completion.choices[0].message.content.strip()
+    print("OpenAI API Response for Conceptual Graph:", response_text)
+
+    # Remove code block markers if present
+    if response_text.startswith("```") and response_text.endswith("```"):
+        # Remove triple backticks and 'json' if present
+        response_text = response_text.strip('`')
+        if response_text.startswith('json'):
+            response_text = response_text[4:].strip()
 
     try:
-        # Construct a detailed prompt with structured output
-        prompt = (
-            "As an AI programming tutor, analyze the following code structure or error and provide a detailed explanation. "
-            "Your response should include: "
-            "1. A brief description of the structure or error. "
-            "2. The underlying computer science concepts involved. "
-            "3. Potential issues or errors and how to fix them. "
-            "Provide the output in the following JSON format:\n"
-            "{\n"
-            '  "description": "...",\n'
-            '  "concepts": ["...", "..."],\n'
-            '  "issues": ["...", "..."],\n'
-            '  "suggestions": ["...", "..."]\n'
-            "}\n"
-            f"Here is the code structure or error: {node_info}"
-        )
-
-        completion = client.chat.completions.create(
-            model="gpt-4o-2024-11-20",
-            messages=[
-                {"role": "system", "content": "You are an AI programming tutor."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=500,
-        )
-
-        # Extract and parse the response
-        response_text = completion.choices[0].message.content.strip()
-        explanation = json.loads(response_text)
-
-        return jsonify({"explanation": explanation})
+        # Attempt to parse the response directly
+        conceptual_graph = json.loads(response_text)
     except json.JSONDecodeError as json_error:
-        # Handle JSON parsing errors
         print(f"JSON parsing error: {json_error}")
-        # Fallback to unstructured text
-        explanation = {"description": response_text}
-        return jsonify({"explanation": explanation})
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        return jsonify({"error": str(e)}), 500
+
+        # Attempt to extract JSON from the response
+        start_index = response_text.find('{')
+        end_index = response_text.rfind('}') + 1
+
+        if start_index != -1 and end_index != -1 and end_index > start_index:
+            json_text = response_text[start_index:end_index]
+            try:
+                conceptual_graph = json.loads(json_text)
+            except json.JSONDecodeError as json_error:
+                print(f"JSON parsing error after extraction: {json_error}")
+                raise ValueError("Failed to parse JSON object from the response.")
+        else:
+            raise ValueError("JSON object not found in the response.")
+
+    # At this point, 'conceptual_graph' should be a valid dictionary
+    # Now, assign positions and adjust node structures
+    nodes = conceptual_graph.get('nodes', [])
+    edges = conceptual_graph.get('edges', [])
+
+    # Assign positions and adjust nodes
+    for index, node in enumerate(nodes):
+        # Assign position
+        # Positions will be adjusted by the frontend layout algorithm, so initial positions can be zero
+        node['position'] = {'x': 0, 'y': 0}
+
+        # Wrap the label in 'data' as expected by React Flow
+        node['data'] = {'label': node.get('label', '')}
+        # Include the error message in 'data' if it exists
+        if 'error' in node:
+            node['data']['error'] = node['error']
+            del node['error']
+
+        # Remove 'label' from the root of the node
+        if 'label' in node:
+            del node['label']
+
+        # Optionally set a default type
+        node['type'] = 'customNode'
+
+    # Return the modified conceptual graph
+    return {'nodes': nodes, 'edges': edges}
 
 def analyze_code_tree(tree):
     nodes = []
@@ -223,7 +250,8 @@ def get_high_level_feedback(code):
     prompt = (
         "As an experienced software engineer and educator, analyze the following Python code. "
         "Provide high-level feedback on its logic, structure, and potential issues. "
-        "Your response should be in the following JSON format without any code block wrappers or additional text:\n"
+        "Your response should be in the following JSON format without any code block wrappers or additional text. "
+        "Do not include triple backticks or any markdown formatting. Only output the JSON object.\n"
         "{\n"
         '  "summary": "...",\n'
         '  "strengths": ["...", "..."],\n'
@@ -246,14 +274,13 @@ def get_high_level_feedback(code):
         response_text = completion.choices[0].message.content.strip()
         print("OpenAI API Response:", response_text)
 
-        # this section to debug weird json
+        # Remove code block markers if present
         if response_text.startswith("```") and response_text.endswith("```"):
             response_text = response_text.strip("`")
-            # remove json label if present too
+            # Remove json label if present
             if response_text.startswith("json"):
                 response_text = response_text[len("json"):].strip()
-        
-        # in case theres still kson
+
         feedback = json.loads(response_text)
         return feedback
     except json.JSONDecodeError as json_error:

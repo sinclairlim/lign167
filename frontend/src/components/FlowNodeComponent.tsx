@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -8,7 +8,6 @@ import ReactFlow, {
   Position,
   NodeProps,
 } from "reactflow";
-import dagre from "dagre";
 import { getExplanation } from "../services/api";
 import { Modal, Button } from 'react-bootstrap';
 
@@ -24,66 +23,15 @@ interface FlowNodeProps {
   edges: Edge[];
 }
 
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-const nodeWidth = 172;
-const nodeHeight = 36;
-
-const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-  const isHorizontal = false;
-  dagreGraph.setGraph({ rankdir: isHorizontal ? 'LR' : 'TB' });
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-  });
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(dagreGraph);
-
-  nodes.forEach((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    node.targetPosition = isHorizontal ? Position.Left : Position.Top;
-    node.sourcePosition = isHorizontal ? Position.Right : Position.Bottom;
-
-    // Shift the dagre node position to match React Flow's position format
-    node.position = {
-      x: nodeWithPosition.x - nodeWidth / 2,
-      y: nodeWithPosition.y - nodeHeight / 2,
-    };
-
-    node.style = {
-      ...node.style,
-      width: nodeWidth,
-      height: nodeHeight,
-    };
-  });
-
-  return { nodes, edges };
-};
-
 const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [layoutedNodes, setLayoutedNodes] = useState<Node[]>([]);
-  const [layoutedEdges, setLayoutedEdges] = useState<Edge[]>([]);
-
-  useEffect(() => {
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      nodes,
-      edges
-    );
-    setLayoutedNodes(layoutedNodes);
-    setLayoutedEdges(layoutedEdges);
-  }, [nodes, edges]);
 
   const onNodeClick = async (_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setShowModal(true);
+
     const nodeInfo = node.data.label;
 
     if (nodeInfo) {
@@ -111,7 +59,6 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
             backgroundColor: hasError ? '#ffe6e6' : '#fff',
             borderRadius: 5,
             textAlign: 'center',
-            minWidth: nodeWidth,
           }}
         >
           <strong>{data.label}</strong>
@@ -121,12 +68,18 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
     },
   };
 
+  // Map nodes to include the custom node type
+  const updatedNodes = nodes.map((node) => ({
+    ...node,
+    type: 'customNode',
+  }));
+
   return (
     <>
       <div style={{ width: '100%', height: '500px' }}>
         <ReactFlow
-          nodes={layoutedNodes}
-          edges={layoutedEdges}
+          nodes={updatedNodes}
+          edges={edges}
           nodeTypes={nodeTypes}
           onNodeClick={onNodeClick}
           fitView
@@ -139,7 +92,7 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
       <Modal
         show={showModal}
         onHide={() => setShowModal(false)}
-        animation={false}
+        animation={false} // Add this line
       >
         <Modal.Header closeButton>
           <Modal.Title>Node Explanation</Modal.Title>
@@ -158,7 +111,26 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
                   </ul>
                 </>
               )}
-              {/* Similarly for issues and suggestions */}
+              {explanation.issues && (
+                <>
+                  <p><strong>Issues:</strong></p>
+                  <ul>
+                    {explanation.issues.map((issue, index) => (
+                      <li key={index}>{issue}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {explanation.suggestions && (
+                <>
+                  <p><strong>Suggestions:</strong></p>
+                  <ul>
+                    {explanation.suggestions.map((suggestion, index) => (
+                      <li key={index}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </>
           ) : (
             <p>Loading explanation...</p>

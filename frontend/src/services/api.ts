@@ -7,15 +7,15 @@ interface AnalyzeCodeResponse {
   edges: any[];
   high_level_feedback: {
     summary: string;
-    strengths: string[];
-    weaknesses: string[];
-    recommendations: string[];
+    strengths?: string[];
+    weaknesses?: string[];
+    recommendations?: string[];
   };
 }
 
-export const analyzeCode = async (code: string): Promise<AnalyzeCodeResponse> => {
+export const analyzeCode = async (code: string, intent: string): Promise<AnalyzeCodeResponse> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/analyze_code`, { code });
+    const response = await axios.post(`${API_BASE_URL}/api/analyze_code`, { code, intent });
     return response.data;
   } catch (error) {
     console.error('Error in analyzeCode:', error);
