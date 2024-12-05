@@ -48,15 +48,16 @@ def analyze_code():
 def generate_conceptual_graph(code, intent):
     prompt = (
         "As an AI programming tutor, analyze the following Python code in the context of the user's intent. "
-        "Break down the code into conceptual components (e.g., functions, loops, conditionals) and represent them as nodes. "
+        "Break down the code into its main components and represent them as nodes with concise labels. "
+        "Avoid adding extra nodes like 'Missing Implementation' or 'Errors'; focus on the actual code elements. "
         "Create edges to show the logical flow between these nodes. "
-        "For each node, provide a descriptive label that clearly indicates what that part of the code does. "
-        "If there are any logical errors or discrepancies between the code and the intended goal, include an 'error' message in the node. "
+        "For each node, provide a simple label such as the code element (e.g., 'Function Declaration', 'return hello_world'). "
+        "If a node represents a part of the code with an error, include an 'error' message in the node. "
         "Provide the output in the following JSON format without any code block wrappers or additional text. "
         "Do not include explanations or additional descriptions. Only output the JSON object.\n"
         "{\n"
         '  "nodes": [\n'
-        '    {"id": "1", "label": "Descriptive label", "error": "Optional error message"},\n'
+        '    {"id": "1", "label": "Code element", "error": "Optional error message"},\n'
         '    ...\n'
         '  ],\n'
         '  "edges": [\n'
@@ -70,7 +71,7 @@ def generate_conceptual_graph(code, intent):
     )
 
     completion = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o-2024-11-20",
         messages=[
             {
                 "role": "system",
@@ -263,7 +264,7 @@ def get_high_level_feedback(code):
 
     try:
         completion = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-2024-11-20",
             messages=[
                 {"role": "system", "content": "You are an experienced software engineer and educator."},
                 {"role": "user", "content": prompt}
