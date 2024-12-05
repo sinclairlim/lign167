@@ -44,11 +44,37 @@ def analyze_code():
         print(f"Error occurred: {e}")
         return jsonify({"error": str(e)}), 500
 
+<<<<<<< Updated upstream
 @app.route("/api/get_explanation", methods=["POST"])
 def get_explanation():
     data = request.json
     if not data or "nodeInfo" not in data:
         return jsonify({"error": "Missing nodeInfo in request body"}), 400
+=======
+def generate_conceptual_graph(code, intent):
+    prompt = (
+        "As an AI programming tutor, analyze the following Python code in the context of the user's intent. "
+        "Break down the code into conceptual components (e.g., functions, loops, conditionals) and represent them as nodes. "
+        "Create edges to show the logical flow between these nodes. "
+        "For each node, provide a descriptive label that clearly indicates what that part of the code does. "
+        "If there are any logical errors or discrepancies between the code and the intended goal, include an 'error' message in the node. "
+        "Provide the output in the following JSON format without any code block wrappers or additional text. "
+        "Do not include explanations or additional descriptions. Only output the JSON object.\n"
+        "{\n"
+        '  "nodes": [\n'
+        '    {"id": "1", "label": "Descriptive label", "error": "Optional error message"},\n'
+        '    ...\n'
+        '  ],\n'
+        '  "edges": [\n'
+        '    {"source": "1", "target": "2"},\n'
+        '    ...\n'
+        '  ]\n'
+        "}\n"
+        "Remember: Only output the JSON object, and do not include any explanations, comments, or additional text.\n"
+        f"User's intent:\n{intent}\n"
+        f"Here is the code:\n```python\n{code}\n```"
+    )
+>>>>>>> Stashed changes
 
     node_info = data["nodeInfo"]
 
