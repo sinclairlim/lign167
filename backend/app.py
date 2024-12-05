@@ -2,12 +2,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
-import openai
-import json
 import os
+import json
 import ast
 
-# put your directory here
+# Load environment variables
 load_dotenv(r"C:\Users\nchai\OneDrive\Desktop\key.env")
 
 app = Flask(__name__)
@@ -32,7 +31,7 @@ def analyze_code():
         # Analyze the code tree
         analysis_result = analyze_code_tree(tree)
 
-        # Generate high-level feedback using GPT-4
+        # Generate high-level feedback using gpt-4o-2024-11-20
         high_level_feedback = get_high_level_feedback(code)
 
         # Return nodes, edges, and high-level feedback to the frontend
@@ -71,8 +70,8 @@ def get_explanation():
             f"Here is the code structure or error: {node_info}"
         )
 
-        completion = openai.ChatCompletion.create(
-            model="gpt-4",
+        completion = client.chat.completions.create(
+            model="gpt-4o-2024-11-20",
             messages=[
                 {"role": "system", "content": "You are an AI programming tutor."},
                 {"role": "user", "content": prompt}
@@ -86,9 +85,9 @@ def get_explanation():
 
         return jsonify({"explanation": explanation})
     except json.JSONDecodeError as json_error:
-        # handle JSON parsing errors
+        # Handle JSON parsing errors
         print(f"JSON parsing error: {json_error}")
-        # fallback to unstructured text
+        # Fallback to unstructured text
         explanation = {"description": response_text}
         return jsonify({"explanation": explanation})
     except Exception as e:
@@ -206,7 +205,7 @@ def get_high_level_feedback(code):
     prompt = (
         "As an experienced software engineer and educator, analyze the following Python code. "
         "Provide high-level feedback on its logic, structure, and potential issues. "
-        "Your response should be in the following JSON format:\n"
+        "Your response should be in the following JSON format without any code block wrappers or additional text:\n"
         "{\n"
         '  "summary": "...",\n'
         '  "strengths": ["...", "..."],\n'
@@ -217,7 +216,7 @@ def get_high_level_feedback(code):
     )
 
     try:
-        completion = openai.ChatCompletion.create(
+        completion = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are an experienced software engineer and educator."},
@@ -227,6 +226,16 @@ def get_high_level_feedback(code):
         )
 
         response_text = completion.choices[0].message.content.strip()
+        print("OpenAI API Response:", response_text)
+
+        # this section to debug weird json
+        if response_text.startswith("```") and response_text.endswith("```"):
+            response_text = response_text.strip("`")
+            # remove json label if present too
+            if response_text.startswith("json"):
+                response_text = response_text[len("json"):].strip()
+        
+        # in case theres still kson
         feedback = json.loads(response_text)
         return feedback
     except json.JSONDecodeError as json_error:
