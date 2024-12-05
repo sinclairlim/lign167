@@ -1,7 +1,3 @@
-<<<<<<< Updated upstream
-import React, { useState } from "react";
-import ReactFlow, { MiniMap, Controls, Background, Node, Edge } from "reactflow";
-=======
 import React, { useState, useEffect } from "react";
 import ReactFlow, {
   MiniMap,
@@ -13,7 +9,6 @@ import ReactFlow, {
   NodeProps,
 } from "reactflow";
 import dagre from "dagre";
->>>>>>> Stashed changes
 import { getExplanation } from "../services/api";
 import { Modal, Button } from 'react-bootstrap';
 
@@ -101,8 +96,6 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
     }
   };
 
-<<<<<<< Updated upstream
-=======
   // Add custom node types to highlight errors
   const nodeTypes = {
     customNode: (props: NodeProps) => {
@@ -128,19 +121,13 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
     },
   };
 
->>>>>>> Stashed changes
   return (
     <>
       <div style={{ width: '100%', height: '500px' }}>
         <ReactFlow
-<<<<<<< Updated upstream
-          nodes={nodes}
-          edges={edges}
-=======
           nodes={layoutedNodes}
           edges={layoutedEdges}
           nodeTypes={nodeTypes}
->>>>>>> Stashed changes
           onNodeClick={onNodeClick}
           fitView
         >
@@ -149,15 +136,11 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
           <Background />
         </ReactFlow>
       </div>
-<<<<<<< Updated upstream
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
-=======
       <Modal
         show={showModal}
         onHide={() => setShowModal(false)}
         animation={false}
       >
->>>>>>> Stashed changes
         <Modal.Header closeButton>
           <Modal.Title>Node Explanation</Modal.Title>
         </Modal.Header>

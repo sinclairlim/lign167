@@ -44,13 +44,6 @@ def analyze_code():
         print(f"Error occurred: {e}")
         return jsonify({"error": str(e)}), 500
 
-<<<<<<< Updated upstream
-@app.route("/api/get_explanation", methods=["POST"])
-def get_explanation():
-    data = request.json
-    if not data or "nodeInfo" not in data:
-        return jsonify({"error": "Missing nodeInfo in request body"}), 400
-=======
 def generate_conceptual_graph(code, intent):
     prompt = (
         "As an AI programming tutor, analyze the following Python code in the context of the user's intent. "
@@ -74,7 +67,6 @@ def generate_conceptual_graph(code, intent):
         f"User's intent:\n{intent}\n"
         f"Here is the code:\n```python\n{code}\n```"
     )
->>>>>>> Stashed changes
 
     node_info = data["nodeInfo"]
 
