@@ -44,7 +44,7 @@ const CodeEditor: React.FC = () => {
 
   return (
     <div className="container mt-4">
-      <h2>Python Code Analyzer</h2>
+      <h2>Fault Localization & Explanation for Python</h2>
       <div className="row mt-3">
         <div className="col-md-6">
           <h4>Intent/Goal</h4>
