@@ -51,7 +51,7 @@ const CodeEditor: React.FC = () => {
       setEdges(data.edges);
       setHighLevelFeedback(feedback);
     } catch (error) {
-      console.error("error analyzing code:", error);
+      console.error("Error analyzing code:", error);
     } finally {
       setLoading(false);
     }
@@ -59,18 +59,18 @@ const CodeEditor: React.FC = () => {
 
   return (
     <div className="container mt-4">
-      <h2>fault localization & explanation for python</h2>
+      <h2>Fault Localization & Explanation for Python</h2>
       <div className="row mt-3">
         <div className="col-md-6">
-          <h4>intent/goal</h4>
+          <h4>Intent/Goal</h4>
           <textarea
             className="form-control"
             rows={3}
             value={intent}
             onChange={(e) => setIntent(e.target.value)}
-            placeholder="describe the intent or goal of your code..."
+            placeholder="Describe the intent or goal of your code..."
           />
-          <h4 className="mt-3">code editor</h4>
+          <h4 className="mt-3">Code Editor</h4>
           <MonacoEditor
             height="400px"
             language="python"
@@ -82,21 +82,21 @@ const CodeEditor: React.FC = () => {
             }}
           />
           <button className="btn btn-primary mt-2" onClick={handleSubmit} disabled={loading}>
-            {loading ? <Spinner animation="border" size="sm" /> : "analyze code"}
+            {loading ? <Spinner animation="border" size="sm" /> : "Analyze Code"}
           </button>
         </div>
         <div className="col-md-6">
           {loading && <Spinner animation="border" />}
           {!loading && highLevelFeedback && (
             <Tabs defaultActiveKey="feedback" className="mt-4">
-              <Tab eventKey="feedback" title="high-level feedback">
+              <Tab eventKey="feedback" title="High-Level Feedback">
                 <div className="mt-3">
-                  <h5>summary</h5>
+                  <h5>Summary</h5>
                   <p>{highLevelFeedback.summary}</p>
 
                   {highLevelFeedback.strengths.length > 0 && (
                     <>
-                      <h5>strengths</h5>
+                      <h5>Strengths</h5>
                       <ul>
                         {highLevelFeedback.strengths.map((strength, index) => (
                           <li key={index}>{strength}</li>
@@ -107,7 +107,7 @@ const CodeEditor: React.FC = () => {
 
                   {highLevelFeedback.weaknesses.length > 0 && (
                     <>
-                      <h5>weaknesses</h5>
+                      <h5>Weaknesses</h5>
                       <ul>
                         {highLevelFeedback.weaknesses.map((weakness, index) => (
                           <li key={index}>{weakness}</li>
@@ -118,7 +118,7 @@ const CodeEditor: React.FC = () => {
 
                   {highLevelFeedback.recommendations.length > 0 && (
                     <>
-                      <h5>recommendations</h5>
+                      <h5>Recommendations</h5>
                       <ul>
                         {highLevelFeedback.recommendations.map((rec, index) => (
                           <li key={index}>{rec}</li>
@@ -128,7 +128,7 @@ const CodeEditor: React.FC = () => {
                   )}
                 </div>
               </Tab>
-              <Tab eventKey="visualization" title="visualization">
+              <Tab eventKey="visualization" title="Visualization">
                 <div className="mt-3" style={{ height: '500px' }}>
                   <FlowNodeComponent nodes={nodes} edges={edges} />
                 </div>

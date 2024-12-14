@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # referencing flask-cors docs: https://flask-cors.readthedocs.io
-from openai import OpenAI  # referencing openai api docs: https://platform.openai.com/docs/introduction
-from dotenv import load_dotenv  # referencing python-dotenv docs: https://pypi.org/project/python-dotenv/
+from flask_cors import CORS
+from openai import OpenAI
+from dotenv import load_dotenv
 import os
 import json
-import ast  # referencing python ast library docs: https://docs.python.org/3/library/ast.html
+import ast
 import re
 
-# hey let's load environment variables (similar approach found here: https://stackoverflow.com/questions/4906977)
+# loading environment variables (similar approach found here: https://stackoverflow.com/questions/4906977)
 load_dotenv(r"C:\Users\nchai\OneDrive\Desktop\key.env")
 
 app = Flask(__name__)
@@ -20,10 +20,10 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 @app.route("/api/analyze_code", methods=["POST"])
 def analyze_code():
     # printing so we know this function was hit
-    print("running analyze_code function")
+    print("Running analyze_code function")
     data = request.json
     if not data or "code" not in data or "intent" not in data:
-        return jsonify({"error": "missing code or intent in request body"}), 400
+        return jsonify({"error": "Missing code or intent in request body"}), 400
 
     code = data["code"]
     intent = data["intent"]
@@ -45,16 +45,15 @@ def analyze_code():
             "high_level_feedback": high_level_feedback
         })
     except ValueError as ve:
-        print(f"valueerror occurred: {ve}")
+        print(f"ValueError occurred: {ve}")
         return jsonify({"error": str(ve)}), 500
     except Exception as e:
-        print(f"error occurred: {e}")
-        return jsonify({"error": "an unexpected error occurred."}), 500
+        print(f"Error occurred: {e}")
+        return jsonify({"error": "An unexpected error occurred."}), 500
 
 def robust_json_parse(response_text: str):
     # this function attempts multiple parsing strategies (inspired by some tips on stack overflow https://stackoverflow.com/questions/956867)
     # tries direct parse, regex extraction, substring extraction, and progressive line trimming
-    # everything in lowercase for a more informal style
 
     # --- phase 1: direct parse
     try:
@@ -71,7 +70,7 @@ def robust_json_parse(response_text: str):
         try:
             return json.loads(json_candidate)
         except json.JSONDecodeError as e:
-            print(f"regex capture parse error: {e}")
+            print(f"Regex capture parse error: {e}")
 
     # --- phase 3: substring extraction
     start_index = response_text.find('{')
@@ -81,7 +80,7 @@ def robust_json_parse(response_text: str):
         try:
             return json.loads(json_text)
         except json.JSONDecodeError as e:
-            print(f"substring parse error: {e}")
+            print(f"Substring parse error: {e}")
             # --- phase 4: progressive line trimming
             lines = json_text.split('\n')
             while lines:
@@ -96,22 +95,22 @@ def robust_json_parse(response_text: str):
 def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
     # dynamically generate a conceptual graph with enough nodes to show distinct logic blocks
     # referencing an approach used for code visualization from https://medium.com/geekculture/visualizing-abstract-syntax-trees
-    # not creating a node for every line, but enough to help conceptual clarity
 
     ast_nodes_str = json.dumps(python_ast_context.get("nodes", []), indent=2)
     ast_edges_str = json.dumps(python_ast_context.get("edges", []), indent=2)
 
     prompt = (
-        "you are an ai that generates a dynamic conceptual graph of the user's python code. "
-        "produce enough nodes to capture distinct logic blocks or conceptual chunks, but do not create a node for every line. "
-        "if the user's code is more complex, it's okay to have more nodes, but if it’s simple, fewer nodes are acceptable. "
-        "if there's a conceptual mismatch, reference the specific line and explain briefly in friendly, conceptual terms.\n\n"
-        "output only valid json with 'nodes' and 'edges'. if you include errors, put them in the node itself or a top-level 'errors' array. "
-        "no code fences, no bullet points, no forced minimal or fixed node count. the final graph must be parseable.\n\n"
-        f"user's intent:\n{intent}\n\n"
-        f"ast nodes:\n{ast_nodes_str}\n\n"
-        f"ast edges:\n{ast_edges_str}\n\n"
-        f"user's code:\n```python\n{code}\n```"
+        "You are an AI that generates a dynamic conceptual graph of the user's Python code. "
+        "Produce enough nodes to capture distinct logic blocks or conceptual chunks, but do not create a node for every line. "
+        "If the user's code is more complex, it's okay to have more nodes, but if it’s simple, fewer nodes are acceptable. "
+        "If there's a conceptual mismatch, reference the specific line (e.g., 'if heap[index] > heap[parent]:') "
+        "and explain briefly in friendly, conceptual terms.\n\n"
+        "Output only valid JSON with 'nodes' and 'edges'. If you include errors, put them in the node itself or a top-level 'errors' array. "
+        "No code fences, no bullet points, no forced minimal or fixed node count. The final graph must be parseable.\n\n"
+        f"User's intent:\n{intent}\n\n"
+        f"AST Nodes:\n{ast_nodes_str}\n\n"
+        f"AST Edges:\n{ast_edges_str}\n\n"
+        f"User's code:\n```python\n{code}\n```"
     )
 
     completion = client.chat.completions.create(
@@ -120,8 +119,8 @@ def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
             {
                 "role": "system",
                 "content": (
-                    "you produce a dynamic conceptual graph, with 'just enough' nodes for conceptual clarity. "
-                    "nodes must reference code lines if mismatches exist, but do not overload with trivial nodes."
+                    "You produce a dynamic conceptual graph, with 'just enough' nodes for conceptual clarity. "
+                    "Nodes must reference code lines if mismatches exist, but do not overload with trivial nodes."
                 )
             },
             {"role": "user", "content": prompt},
@@ -131,11 +130,11 @@ def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
     )
 
     response_text = completion.choices[0].message.content.strip()
-    print("openai api response for conceptual graph:", response_text)
+    print("OpenAI API Response for Conceptual Graph:", response_text)
 
     conceptual_graph = robust_json_parse(response_text)
     if not conceptual_graph:
-        raise ValueError("failed to parse json object from the gpt response.")
+        raise ValueError("Failed to parse JSON object from the GPT response.")
 
     nodes = conceptual_graph.get("nodes", [])
     edges = conceptual_graph.get("edges", [])
@@ -166,7 +165,6 @@ def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
 
 def analyze_code_tree(tree):
     # ast-based structure to give gpt deeper context, not used directly in the final graph
-    # referencing ast nodevisitor approach: https://docs.python.org/3/library/ast.html#ast.NodeVisitor
     nodes = []
     edges = []
     node_id = 0
@@ -214,12 +212,12 @@ def analyze_code_tree(tree):
             # checking for empty function or recursive calls, just as an example
             if isinstance(node, ast.FunctionDef):
                 if len(node.body) == 0:
-                    return "empty function."
+                    return "Empty function."
                 self.current_function_name = node.name
             elif isinstance(node, ast.Call):
                 func_name = ast.unparse(node.func)
                 if func_name == self.current_function_name:
-                    return "recursive call detected."
+                    return "Recursive call detected."
             return None
 
     visitor = CodeVisitor()
@@ -228,18 +226,18 @@ def analyze_code_tree(tree):
 
 def get_conceptual_explanation(code, intent):
     # provide a single json object with 'explanation' referencing the user's intent
-    # referencing a similar approach for short conceptual summaries from openai official examples
     prompt = (
-        "you are a conceptual logic tutor. provide a single json object {\"explanation\": \"...\"} "
+        "You are a conceptual logic tutor. Provide a single JSON object {\"explanation\": \"...\"} "
         "focusing on how this code conceptually aligns or misaligns with the user's intent. "
-        "if there's a mismatch, reference the lines of code in plain friendly language. "
-        "format the explanation in an appealing manner, but output only the json.\n"
-        "refer to the user in a friendly manner.\n\n"
+        "If there's a mismatch, reference the lines of code in plain friendly language. "
+        "For instance, this would be a good sentence within the explanation: When an element is pushed to the heap, "
+        "the biggest element is bubbled up to the top instead of the smallest.\n"
+        "Format the explanation in an appealing manner, using a bullet point for each line you're referencing.\n\n"
         "{\n"
-        '  "explanation": "short conceptual explanation referencing lines and comparing code logic to user intent."\n'
+        '  "explanation": "Short conceptual explanation referencing lines and comparing code logic to user intent."\n'
         "}\n"
-        f"user intent:\n{intent}\n\n"
-        f"code:\n```python\n{code}\n```"
+        f"User intent:\n{intent}\n\n"
+        f"Code:\n```python\n{code}\n```"
     )
 
     try:
@@ -249,7 +247,8 @@ def get_conceptual_explanation(code, intent):
                 {
                     "role": "system",
                     "content": (
-                        "output only {\"explanation\":\"...\"}, referencing user intent and code lines."
+                        "Output only {\"explanation\":\"...\"}, referencing user intent and code lines. "
+                        "No bullet points, no fix instructions."
                     )
                 },
                 {"role": "user", "content": prompt},
@@ -259,7 +258,7 @@ def get_conceptual_explanation(code, intent):
         )
 
         response_text = completion.choices[0].message.content.strip()
-        print("openai api response (high-level explanation):", response_text)
+        print("OpenAI API Response (High-Level Explanation):", response_text)
 
         # if gpt still wraps it in code fences, strip them
         if response_text.startswith("```") and response_text.endswith("```"):
@@ -269,12 +268,12 @@ def get_conceptual_explanation(code, intent):
 
         feedback = robust_json_parse(response_text)
         if feedback is None:
-            print("could not parse the explanation json. returning raw text.")
+            print("Could not parse the explanation JSON. Returning raw text.")
             feedback = {"explanation": response_text}
         return feedback
 
     except Exception as e:
-        print(f"error in get_conceptual_explanation: {e}")
+        print(f"Error in get_conceptual_explanation: {e}")
         return {"error": str(e)}
 
 if __name__ == "__main__":

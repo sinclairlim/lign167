@@ -12,7 +12,7 @@ import dagre from "dagre"; // referencing dagre layout approach: https://github.
 import { getExplanation } from "../services/api";
 import { Modal, Button } from 'react-bootstrap';
 
-// informal interface naming can remain the same, just adding references as comments
+// informal interface naming can remain, just making sure comments are lowercase
 
 interface Explanation {
   description: string;
@@ -26,7 +26,7 @@ interface FlowNodeProps {
   edges: Edge[];
 }
 
-// constructing a dagre graph for auto-layout (ref: dagre documentation: https://github.com/dagrejs/dagre)
+// constructing a dagre graph for auto-layout (ref: dagre docs: https://github.com/dagrejs/dagre)
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
@@ -70,7 +70,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 };
 
 const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
-  // using local states to store selected node and explanation
+  // local states for selected node and explanation
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -79,10 +79,7 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
 
   // effect that calculates layout using dagre whenever nodes or edges change
   useEffect(() => {
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      nodes,
-      edges
-    );
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);
     setLayoutedNodes(layoutedNodes);
     setLayoutedEdges(layoutedEdges);
   }, [nodes, edges]);
@@ -100,7 +97,7 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
     } else {
       // otherwise, no error
       setExplanation({
-        description: 'no errors in this node.',
+        description: 'No errors in this node.',
       });
     }
   };
@@ -151,19 +148,19 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
         animation={false}
       >
         <Modal.Header closeButton>
-          <Modal.Title>node explanation</Modal.Title>
+          <Modal.Title>Node Explanation</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {explanation ? (
             <>
-              <p><strong>description:</strong> {explanation.description}</p>
+              <p><strong>Description:</strong> {explanation.description}</p>
             </>
           ) : (
-            <p>loading explanation...</p>
+            <p>Loading explanation...</p>
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>close</Button>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>Close</Button>
         </Modal.Footer>
       </Modal>
     </>
