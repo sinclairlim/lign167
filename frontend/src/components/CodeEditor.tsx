@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import MonacoEditor from "@monaco-editor/react";
+import MonacoEditor from "@monaco-editor/react"; // referencing monaco editor docs: https://github.com/suren-atoyan/monaco-react
 import { analyzeCode } from "../services/api";
 import FlowNodeComponent from "./FlowNodeComponent";
 import { Tabs, Tab, Spinner } from 'react-bootstrap';
@@ -13,6 +13,7 @@ interface HighLevelFeedback {
 }
 
 const CodeEditor: React.FC = () => {
+  // local states for code, intent, nodes, edges, feedback, etc.
   const [code, setCode] = useState("");
   const [intent, setIntent] = useState("");
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -20,42 +21,56 @@ const CodeEditor: React.FC = () => {
   const [highLevelFeedback, setHighLevelFeedback] = useState<HighLevelFeedback | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // this function calls analyzeCode (like a user hitting 'submit')
   const handleSubmit = async () => {
     setLoading(true);
     try {
       const data = await analyzeCode(code, intent);
-
-      const feedback: HighLevelFeedback = {
-        summary: data.high_level_feedback.summary,
-        strengths: data.high_level_feedback.strengths ?? [],
-        weaknesses: data.high_level_feedback.weaknesses ?? [],
-        recommendations: data.high_level_feedback.recommendations ?? [],
-      };
-
+  
+      let feedback: HighLevelFeedback;
+  
+      if ("explanation" in data.high_level_feedback) {
+        // if it's just an 'explanation' field, store it in summary
+        feedback = {
+          summary: data.high_level_feedback.explanation as string,
+          strengths: [],
+          weaknesses: [],
+          recommendations: [],
+        };
+      } else {
+        // otherwise assume it has multiple fields
+        feedback = {
+          summary: data.high_level_feedback.summary,
+          strengths: data.high_level_feedback.strengths ?? [],
+          weaknesses: data.high_level_feedback.weaknesses ?? [],
+          recommendations: data.high_level_feedback.recommendations ?? [],
+        };
+      }
+  
       setNodes(data.nodes);
       setEdges(data.edges);
       setHighLevelFeedback(feedback);
     } catch (error) {
-      console.error("Error analyzing code:", error);
+      console.error("error analyzing code:", error);
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   return (
     <div className="container mt-4">
-      <h2>Fault Localization & Explanation for Python</h2>
+      <h2>fault localization & explanation for python</h2>
       <div className="row mt-3">
         <div className="col-md-6">
-          <h4>Intent/Goal</h4>
+          <h4>intent/goal</h4>
           <textarea
             className="form-control"
             rows={3}
             value={intent}
             onChange={(e) => setIntent(e.target.value)}
-            placeholder="Describe the intent or goal of your code..."
+            placeholder="describe the intent or goal of your code..."
           />
-          <h4 className="mt-3">Code Editor</h4>
+          <h4 className="mt-3">code editor</h4>
           <MonacoEditor
             height="400px"
             language="python"
@@ -67,21 +82,21 @@ const CodeEditor: React.FC = () => {
             }}
           />
           <button className="btn btn-primary mt-2" onClick={handleSubmit} disabled={loading}>
-            {loading ? <Spinner animation="border" size="sm" /> : "Analyze Code"}
+            {loading ? <Spinner animation="border" size="sm" /> : "analyze code"}
           </button>
         </div>
         <div className="col-md-6">
           {loading && <Spinner animation="border" />}
           {!loading && highLevelFeedback && (
             <Tabs defaultActiveKey="feedback" className="mt-4">
-              <Tab eventKey="feedback" title="High-Level Feedback">
+              <Tab eventKey="feedback" title="high-level feedback">
                 <div className="mt-3">
-                  <h5>Summary</h5>
+                  <h5>summary</h5>
                   <p>{highLevelFeedback.summary}</p>
 
                   {highLevelFeedback.strengths.length > 0 && (
                     <>
-                      <h5>Strengths</h5>
+                      <h5>strengths</h5>
                       <ul>
                         {highLevelFeedback.strengths.map((strength, index) => (
                           <li key={index}>{strength}</li>
@@ -92,7 +107,7 @@ const CodeEditor: React.FC = () => {
 
                   {highLevelFeedback.weaknesses.length > 0 && (
                     <>
-                      <h5>Weaknesses</h5>
+                      <h5>weaknesses</h5>
                       <ul>
                         {highLevelFeedback.weaknesses.map((weakness, index) => (
                           <li key={index}>{weakness}</li>
@@ -103,7 +118,7 @@ const CodeEditor: React.FC = () => {
 
                   {highLevelFeedback.recommendations.length > 0 && (
                     <>
-                      <h5>Recommendations</h5>
+                      <h5>recommendations</h5>
                       <ul>
                         {highLevelFeedback.recommendations.map((rec, index) => (
                           <li key={index}>{rec}</li>
@@ -113,7 +128,7 @@ const CodeEditor: React.FC = () => {
                   )}
                 </div>
               </Tab>
-              <Tab eventKey="visualization" title="Visualization">
+              <Tab eventKey="visualization" title="visualization">
                 <div className="mt-3" style={{ height: '500px' }}>
                   <FlowNodeComponent nodes={nodes} edges={edges} />
                 </div>

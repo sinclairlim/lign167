@@ -1,73 +1,117 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-from openai import OpenAI
-from dotenv import load_dotenv
+from flask_cors import CORS  # referencing flask-cors docs: https://flask-cors.readthedocs.io
+from openai import OpenAI  # referencing openai api docs: https://platform.openai.com/docs/introduction
+from dotenv import load_dotenv  # referencing python-dotenv docs: https://pypi.org/project/python-dotenv/
 import os
 import json
-import ast
+import ast  # referencing python ast library docs: https://docs.python.org/3/library/ast.html
+import re
 
-# Load environment variables
+# hey let's load environment variables (similar approach found here: https://stackoverflow.com/questions/4906977)
 load_dotenv(r"C:\Users\nchai\OneDrive\Desktop\key.env")
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend-backend communication
+# enabling cors for frontend-backend communication (ref: https://flask-cors.readthedocs.io/en/latest/)
+CORS(app)
 
-# Initialize the OpenAI client
+# creating openai client (ref: https://platform.openai.com/docs/api-reference)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @app.route("/api/analyze_code", methods=["POST"])
 def analyze_code():
-    print("Running analyze_code function")
+    # printing so we know this function was hit
+    print("running analyze_code function")
     data = request.json
     if not data or "code" not in data or "intent" not in data:
-        return jsonify({"error": "Missing code or intent in request body"}), 400
+        return jsonify({"error": "missing code or intent in request body"}), 400
 
     code = data["code"]
     intent = data["intent"]
 
     try:
-        # Generate conceptual graph using GPT-4
-        conceptual_graph = generate_conceptual_graph(code, intent)
+        # parsing user code with ast for more context (concept borrowed from https://docs.python.org/3/library/ast.html)
+        tree = ast.parse(code)
+        python_ast_context = analyze_code_tree(tree)
 
-        # Generate high-level feedback using GPT-4
-        high_level_feedback = get_high_level_feedback(code)
+        # generating a conceptual graph that scales to the code's complexity
+        conceptual_graph = generate_dynamic_conceptual_graph(code, intent, python_ast_context)
 
-        # Return nodes, edges, and high-level feedback to the frontend
+        # generating simpler, conceptual explanation referencing the user's intent
+        high_level_feedback = get_conceptual_explanation(code, intent)
+
         return jsonify({
             "nodes": conceptual_graph["nodes"],
             "edges": conceptual_graph["edges"],
             "high_level_feedback": high_level_feedback
         })
     except ValueError as ve:
-        print(f"ValueError occurred: {ve}")
+        print(f"valueerror occurred: {ve}")
         return jsonify({"error": str(ve)}), 500
     except Exception as e:
-        print(f"Error occurred: {e}")
-        return jsonify({"error": "An unexpected error occurred."}), 500
+        print(f"error occurred: {e}")
+        return jsonify({"error": "an unexpected error occurred."}), 500
 
-def generate_conceptual_graph(code, intent):
+def robust_json_parse(response_text: str):
+    # this function attempts multiple parsing strategies (inspired by some tips on stack overflow https://stackoverflow.com/questions/956867)
+    # tries direct parse, regex extraction, substring extraction, and progressive line trimming
+    # everything in lowercase for a more informal style
+
+    # --- phase 1: direct parse
+    try:
+        return json.loads(response_text)
+    except json.JSONDecodeError:
+        pass
+
+    # --- phase 2: regex extraction
+    pattern = r"```(?:json)?\s*(\{[\s\S]*?\})\s*```|(\{[\s\S]*\})"
+    match = re.search(pattern, response_text)
+    if match:
+        json_candidate = match.group(1) or match.group(2)
+        json_candidate = json_candidate.strip('`')
+        try:
+            return json.loads(json_candidate)
+        except json.JSONDecodeError as e:
+            print(f"regex capture parse error: {e}")
+
+    # --- phase 3: substring extraction
+    start_index = response_text.find('{')
+    end_index = response_text.rfind('}') + 1
+    if start_index != -1 and end_index != -1 and end_index > start_index:
+        json_text = response_text[start_index:end_index]
+        try:
+            return json.loads(json_text)
+        except json.JSONDecodeError as e:
+            print(f"substring parse error: {e}")
+            # --- phase 4: progressive line trimming
+            lines = json_text.split('\n')
+            while lines:
+                candidate = '\n'.join(lines)
+                try:
+                    return json.loads(candidate)
+                except json.JSONDecodeError:
+                    lines.pop()
+            return None
+    return None
+
+def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
+    # dynamically generate a conceptual graph with enough nodes to show distinct logic blocks
+    # referencing an approach used for code visualization from https://medium.com/geekculture/visualizing-abstract-syntax-trees
+    # not creating a node for every line, but enough to help conceptual clarity
+
+    ast_nodes_str = json.dumps(python_ast_context.get("nodes", []), indent=2)
+    ast_edges_str = json.dumps(python_ast_context.get("edges", []), indent=2)
+
     prompt = (
-        "As an AI programming tutor, analyze the following Python code in the context of the user's intent. "
-        "Break down the code into its main components and represent them as nodes with concise labels. "
-        "Avoid adding extra nodes like 'Missing Implementation' or 'Errors'; focus on the actual code elements. "
-        "Create edges to show the logical flow between these nodes. "
-        "For each node, provide a simple label such as the code element (e.g., 'Function Declaration', 'return hello_world'). "
-        "If a node represents a part of the code with an error, include an 'error' message in the node. "
-        "Provide the output in the following JSON format without any code block wrappers or additional text. "
-        "Do not include explanations or additional descriptions. Only output the JSON object.\n"
-        "{\n"
-        '  "nodes": [\n'
-        '    {"id": "1", "label": "Code element", "error": "Optional error message"},\n'
-        '    ...\n'
-        '  ],\n'
-        '  "edges": [\n'
-        '    {"source": "1", "target": "2"},\n'
-        '    ...\n'
-        '  ]\n'
-        "}\n"
-        "Remember: Only output the JSON object, and do not include any explanations, comments, or additional text.\n"
-        f"User's intent:\n{intent}\n"
-        f"Here is the code:\n```python\n{code}\n```"
+        "you are an ai that generates a dynamic conceptual graph of the user's python code. "
+        "produce enough nodes to capture distinct logic blocks or conceptual chunks, but do not create a node for every line. "
+        "if the user's code is more complex, it's okay to have more nodes, but if it’s simple, fewer nodes are acceptable. "
+        "if there's a conceptual mismatch, reference the specific line and explain briefly in friendly, conceptual terms.\n\n"
+        "output only valid json with 'nodes' and 'edges'. if you include errors, put them in the node itself or a top-level 'errors' array. "
+        "no code fences, no bullet points, no forced minimal or fixed node count. the final graph must be parseable.\n\n"
+        f"user's intent:\n{intent}\n\n"
+        f"ast nodes:\n{ast_nodes_str}\n\n"
+        f"ast edges:\n{ast_edges_str}\n\n"
+        f"user's code:\n```python\n{code}\n```"
     )
 
     completion = client.chat.completions.create(
@@ -75,72 +119,54 @@ def generate_conceptual_graph(code, intent):
         messages=[
             {
                 "role": "system",
-                "content": "You are an AI that outputs only JSON objects as responses, without any explanations or additional text.",
+                "content": (
+                    "you produce a dynamic conceptual graph, with 'just enough' nodes for conceptual clarity. "
+                    "nodes must reference code lines if mismatches exist, but do not overload with trivial nodes."
+                )
             },
             {"role": "user", "content": prompt},
         ],
-        max_tokens=1000,
+        temperature=0,
+        max_tokens=1600,
     )
 
     response_text = completion.choices[0].message.content.strip()
-    print("OpenAI API Response for Conceptual Graph:", response_text)
+    print("openai api response for conceptual graph:", response_text)
 
-    # Remove code block markers if present
-    if response_text.startswith("```") and response_text.endswith("```"):
-        # Remove triple backticks and 'json' if present
-        response_text = response_text.strip('`')
-        if response_text.startswith('json'):
-            response_text = response_text[4:].strip()
+    conceptual_graph = robust_json_parse(response_text)
+    if not conceptual_graph:
+        raise ValueError("failed to parse json object from the gpt response.")
 
-    try:
-        # Attempt to parse the response directly
-        conceptual_graph = json.loads(response_text)
-    except json.JSONDecodeError as json_error:
-        print(f"JSON parsing error: {json_error}")
+    nodes = conceptual_graph.get("nodes", [])
+    edges = conceptual_graph.get("edges", [])
 
-        # Attempt to extract JSON from the response
-        start_index = response_text.find('{')
-        end_index = response_text.rfind('}') + 1
+    # if there's a separate "errors" array, merge them into the corresponding nodes
+    errors_list = conceptual_graph.get("errors", [])
+    for error_item in errors_list:
+        node_id = str(error_item.get("node", ""))
+        error_description = error_item.get("description", "")
+        for node in nodes:
+            if node.get("id") == node_id:
+                node["error"] = error_description
+                break
 
-        if start_index != -1 and end_index != -1 and end_index > start_index:
-            json_text = response_text[start_index:end_index]
-            try:
-                conceptual_graph = json.loads(json_text)
-            except json.JSONDecodeError as json_error:
-                print(f"JSON parsing error after extraction: {json_error}")
-                raise ValueError("Failed to parse JSON object from the response.")
-        else:
-            raise ValueError("JSON object not found in the response.")
-
-    # At this point, 'conceptual_graph' should be a valid dictionary
-    # Now, assign positions and adjust node structures
-    nodes = conceptual_graph.get('nodes', [])
-    edges = conceptual_graph.get('edges', [])
-
-    # Assign positions and adjust nodes
-    for index, node in enumerate(nodes):
-        # Assign position
-        # Positions will be adjusted by the frontend layout algorithm, so initial positions can be zero
+    # transform nodes for react flow
+    for node in nodes:
         node['position'] = {'x': 0, 'y': 0}
+        label_value = node.pop('label', '')
+        error_value = node.pop('error', None)
 
-        # Wrap the label in 'data' as expected by React Flow
-        node['data'] = {'label': node.get('label', '')}
-        # Include the error message in 'data' if it exists
-        if 'error' in node:
-            node['data']['error'] = node['error']
-            del node['error']
+        node['data'] = {'label': label_value}
+        if error_value:
+            node['data']['error'] = error_value
 
-        # Remove 'label' from the root of the node
-        if 'label' in node:
-            del node['label']
-
-        # Optionally set a default type
         node['type'] = 'customNode'
 
-    # Return the modified conceptual graph
-    return {'nodes': nodes, 'edges': edges}
+    return {"nodes": nodes, "edges": edges}
 
 def analyze_code_tree(tree):
+    # ast-based structure to give gpt deeper context, not used directly in the final graph
+    # referencing ast nodevisitor approach: https://docs.python.org/3/library/ast.html#ast.NodeVisitor
     nodes = []
     edges = []
     node_id = 0
@@ -155,142 +181,102 @@ def analyze_code_tree(tree):
             current_node_id = str(node_id)
             node_label = self.get_node_label(node)
             error = self.detect_errors(node)
+
             node_info = {
                 "id": current_node_id,
-                "type": type(node).__name__,
-                "data": {
-                    "label": node_label,
-                    "error": error,
-                },
-                "position": {"x": node_id * 200, "y": len(self.parent_stack) * 100},
+                "node_type": type(node).__name__,
+                "label": node_label,
+                "error": error
             }
-
             nodes.append(node_info)
 
             if self.parent_stack:
                 parent_id = self.parent_stack[-1]
-                edge_info = {
+                edges.append({
                     "id": f"e{parent_id}-{current_node_id}",
                     "source": parent_id,
                     "target": current_node_id,
-                }
-                edges.append(edge_info)
+                })
 
             self.parent_stack.append(current_node_id)
             node_id += 1
             super().generic_visit(node)
             self.parent_stack.pop()
 
-        # Lol these should be moved to a mapping / better data structure
         def get_node_label(self, node):
-            # Expanded node labels for various structures
             if isinstance(node, ast.FunctionDef):
-                return f"Function: {node.name}"
+                return f"FunctionDef: {node.name}"
             elif isinstance(node, ast.ClassDef):
-                return f"Class: {node.name}"
-            elif isinstance(node, ast.For):
-                return f"For Loop over {ast.unparse(node.target)}"
-            elif isinstance(node, ast.While):
-                return f"While Loop ({ast.unparse(node.test)})"
-            elif isinstance(node, ast.If):
-                return f"If Statement ({ast.unparse(node.test)})"
-            elif isinstance(node, ast.Try):
-                return "Try-Except Block"
-            elif isinstance(node, ast.With):
-                return f"With Statement ({ast.unparse(node.items[0].context_expr)})"
-            elif isinstance(node, ast.Assign):
-                targets = ', '.join([ast.unparse(t) for t in node.targets])
-                return f"Assignment: {targets} = {ast.unparse(node.value)}"
-            elif isinstance(node, ast.Return):
-                return f"Return: {ast.unparse(node.value)}"
-            elif isinstance(node, ast.Lambda):
-                return "Lambda Function"
-            elif isinstance(node, ast.ListComp):
-                return "List Comprehension"
-            elif isinstance(node, ast.DictComp):
-                return "Dictionary Comprehension"
-            elif isinstance(node, ast.Call):
-                return f"Function Call: {ast.unparse(node.func)}"
-            else:
-                return type(node).__name__
+                return f"ClassDef: {node.name}"
+            return type(node).__name__
 
         def detect_errors(self, node):
-            # edge cases
+            # checking for empty function or recursive calls, just as an example
             if isinstance(node, ast.FunctionDef):
                 if len(node.body) == 0:
-                    return "Function body is empty."
+                    return "empty function."
                 self.current_function_name = node.name
-            elif isinstance(node, ast.Return) and self.current_function_name:
-                if node.value is None:
-                    return f"Function '{self.current_function_name}' returns None."
             elif isinstance(node, ast.Call):
                 func_name = ast.unparse(node.func)
                 if func_name == self.current_function_name:
-                    return "Recursive call detected."
-            elif isinstance(node, ast.If):
-                if isinstance(node.test, ast.NameConstant) and node.test.value in [True, False]:
-                    return "If condition is always true or false."
-            elif isinstance(node, ast.Compare):
-                if isinstance(node.left, ast.Constant) and isinstance(node.comparators[0], ast.Constant):
-                    return "Comparison between two constants."
-            elif isinstance(node, ast.Assign):
-                if isinstance(node.value, ast.Constant) and node.value.value is None:
-                    return "Assigned None to a variable."
-            elif isinstance(node, ast.Try):
-                if not node.handlers:
-                    return "Try block without except clauses."
-            # add more exceptions here
+                    return "recursive call detected."
             return None
 
     visitor = CodeVisitor()
     visitor.visit(tree)
-
     return {"nodes": nodes, "edges": edges}
 
-def get_high_level_feedback(code):
+def get_conceptual_explanation(code, intent):
+    # provide a single json object with 'explanation' referencing the user's intent
+    # referencing a similar approach for short conceptual summaries from openai official examples
     prompt = (
-        "As an experienced software engineer and educator, analyze the following Python code. "
-        "Provide high-level feedback on its logic, structure, and potential issues. "
-        "Your response should be in the following JSON format without any code block wrappers or additional text. "
-        "Do not include triple backticks or any markdown formatting. Only output the JSON object.\n"
+        "you are a conceptual logic tutor. provide a single json object {\"explanation\": \"...\"} "
+        "focusing on how this code conceptually aligns or misaligns with the user's intent. "
+        "if there's a mismatch, reference the lines of code in plain friendly language. "
+        "format the explanation in an appealing manner, but output only the json.\n"
+        "refer to the user in a friendly manner.\n\n"
         "{\n"
-        '  "summary": "...",\n'
-        '  "strengths": ["...", "..."],\n'
-        '  "weaknesses": ["...", "..."],\n'
-        '  "recommendations": ["...", "..."]\n'
+        '  "explanation": "short conceptual explanation referencing lines and comparing code logic to user intent."\n'
         "}\n"
-        f"Here is the code:\n```python\n{code}\n```"
+        f"user intent:\n{intent}\n\n"
+        f"code:\n```python\n{code}\n```"
     )
 
     try:
         completion = client.chat.completions.create(
             model="gpt-4o-2024-11-20",
             messages=[
-                {"role": "system", "content": "You are an experienced software engineer and educator."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": (
+                        "output only {\"explanation\":\"...\"}, referencing user intent and code lines."
+                    )
+                },
+                {"role": "user", "content": prompt},
             ],
-            max_tokens=800,
+            temperature=0,
+            max_tokens=600,
         )
 
         response_text = completion.choices[0].message.content.strip()
-        print("OpenAI API Response:", response_text)
+        print("openai api response (high-level explanation):", response_text)
 
-        # Remove code block markers if present
+        # if gpt still wraps it in code fences, strip them
         if response_text.startswith("```") and response_text.endswith("```"):
-            response_text = response_text.strip("`")
-            # Remove json label if present
-            if response_text.startswith("json"):
-                response_text = response_text[len("json"):].strip()
+            response_text = response_text.strip("`").strip()
+            if response_text.lower().startswith("json"):
+                response_text = response_text[4:].strip()
 
-        feedback = json.loads(response_text)
+        feedback = robust_json_parse(response_text)
+        if feedback is None:
+            print("could not parse the explanation json. returning raw text.")
+            feedback = {"explanation": response_text}
         return feedback
-    except json.JSONDecodeError as json_error:
-        print(f"JSON parsing error: {json_error}")
-        feedback = {"summary": response_text}
-        return feedback
+
     except Exception as e:
-        print(f"Error in get_high_level_feedback: {e}")
+        print(f"error in get_conceptual_explanation: {e}")
         return {"error": str(e)}
 
 if __name__ == "__main__":
+    # running the flask app in debug mode (see flask docs: https://flask.palletsprojects.com/en/2.2.x/quickstart/)
     app.run(debug=True)
