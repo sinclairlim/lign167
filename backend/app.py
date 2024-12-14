@@ -109,12 +109,12 @@ def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
         "AND attach the error message to the node that actually represents that logic step. "
         "For example, if 'swap with parent' is the conceptual step where the code references 'if heap[index] > heap[parent]', "
         "then the error belongs to the 'swap_parent' node, not just the entire push_heap function.\n\n"
-        "Error explanations should not tell the user what they should do, or what the code should do instead, but rather just conceptually why it's wrong. "
-        "For instance: 'When Z happens, X happens instead of Y.'\n\n"
+        "Error explanations should explain what conceptually happens in their incorrect code, and how that differs from their intent. It should NOT tell the user what they should do to fix the code. Emphasis on helping the user with conceptual understanding.\n"
+        "Error explanations must explain things through logic, rather than referring to abstract terms, or conditions the user may not be familiar with."
+        "For instance: 'When Z happens, X happens instead of Y.' Assume that the user is new to CS concepts, and always give concise, clear explanations.\n\n"
         "Output only valid JSON with 'nodes' and 'edges'. If you include errors, link them on the node that logically corresponds to the code line. "
         "Nodes should have position fields with small, close-together coordinates so related nodes appear visually near each other, "
         "for example around (x: 100-300, y: 100-300). The user does NOT want nodes placed far apart.\n\n"
-        "Errors should be formatted in a top-level array."
         "No code fences, no bullet points, no forced minimal or fixed node count. The final graph must be parseable.\n\n"
         f"User's intent:\n{intent}\n\n"
         f"AST Nodes:\n{ast_nodes_str}\n\n"
@@ -150,23 +150,31 @@ def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
 
     # if there's a separate "errors" array, merge them into the corresponding nodes
     errors_list = conceptual_graph.get("errors", [])
-    for error_item in errors_list:
-        error_node_id = error_item.get("id", "")
-        error_description = error_item.get("description", "")
+    for err_item in errors_list:
+        err_node_id = err_item.get("id", "")
+        err_desc = err_item.get("description", "")
         for node in nodes:
-            if node.get("id") == error_node_id:
-                node['error'] = error_description
+            if node.get("id") == err_node_id:
+                node["error"] = err_desc
                 break
 
-    # transform nodes for react flow
+    # convert node errors from object to string
     for node in nodes:
         node['position'] = {'x': 0, 'y': 0}
         label_value = node.pop('label', '')
         error_value = node.pop('error', None)
 
         node['data'] = {'label': label_value}
+
         if error_value:
-            node['data']['error'] = error_value
+            if isinstance(error_value, dict):
+                # combine "line" and "message" into a single string
+                line_info = error_value.get("line", "")
+                msg_info = error_value.get("message", "")
+                combined_err = f"{line_info}\n{msg_info}" if line_info or msg_info else None
+                node['data']['error'] = combined_err
+            else:
+                node['data']['error'] = error_value
 
         node['type'] = 'customNode'
 
