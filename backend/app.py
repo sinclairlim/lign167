@@ -96,7 +96,6 @@ def robust_json_parse(response_text: str):
 
 def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
     # dynamically generate a conceptual graph with enough nodes to show distinct logic blocks
-    # referencing an approach used for code visualization from https://medium.com/geekculture/visualizing-abstract-syntax-trees
 
     ast_nodes_str = json.dumps(python_ast_context.get("nodes", []), indent=2)
     ast_edges_str = json.dumps(python_ast_context.get("edges", []), indent=2)
