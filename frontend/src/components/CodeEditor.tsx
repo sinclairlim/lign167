@@ -4,6 +4,8 @@ import { analyzeCode } from "../services/api";
 import FlowNodeComponent from "./FlowNodeComponent";
 import { Tabs, Tab, Spinner } from 'react-bootstrap';
 import { Node, Edge } from 'reactflow';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface HighLevelFeedback {
   summary: string;
@@ -92,7 +94,10 @@ const CodeEditor: React.FC = () => {
               <Tab eventKey="feedback" title="High-Level Feedback">
                 <div className="mt-3">
                   <h5>Summary</h5>
-                  <p>{highLevelFeedback.summary}</p>
+                  {/* parse summary as markdown */}
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {highLevelFeedback.summary}
+                  </ReactMarkdown>
 
                   {highLevelFeedback.strengths.length > 0 && (
                     <>
@@ -104,7 +109,6 @@ const CodeEditor: React.FC = () => {
                       </ul>
                     </>
                   )}
-
                   {highLevelFeedback.weaknesses.length > 0 && (
                     <>
                       <h5>Weaknesses</h5>

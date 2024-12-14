@@ -7,14 +7,13 @@ import ReactFlow, {
   Edge,
   Position,
   NodeProps,
-} from "reactflow"; // referencing react flow docs: https://reactflow.dev
-import dagre from "dagre"; // referencing dagre layout approach: https://github.com/dagrejs/dagre
+} from "reactflow";
+import dagre from "dagre";
 import { getExplanation } from "../services/api";
 import { Modal, Button } from 'react-bootstrap';
 // newly installed react-markdown to display explanation as markdown
 import ReactMarkdown from "react-markdown";
-
-// interface definitions remain the same
+import remarkGfm from "remark-gfm";
 
 interface Explanation {
   description: string;
@@ -28,14 +27,13 @@ interface FlowNodeProps {
   edges: Edge[];
 }
 
-// constructing a dagre graph for auto-layout (ref: dagre docs: https://github.com/dagrejs/dagre)
+// constructing a dagre graph for auto-layout
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
 const nodeWidth = 172;
 const nodeHeight = 36;
 
-// layout function using dagre
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   const isHorizontal = false;
   dagreGraph.setGraph({ rankdir: isHorizontal ? 'LR' : 'TB' });
@@ -43,7 +41,6 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
   });
-
   edges.forEach((edge) => {
     dagreGraph.setEdge(edge.source, edge.target);
   });
@@ -55,7 +52,6 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     node.targetPosition = isHorizontal ? Position.Left : Position.Top;
     node.sourcePosition = isHorizontal ? Position.Right : Position.Bottom;
 
-    // shifting the dagre node position to match react flow's positioning
     node.position = {
       x: nodeWithPosition.x - nodeWidth / 2,
       y: nodeWithPosition.y - nodeHeight / 2,
@@ -85,7 +81,6 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
     setLayoutedEdges(layoutedEdgs);
   }, [nodes, edges]);
 
-  // handle node click
   const onNodeClick = async (_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setShowModal(true);
@@ -97,10 +92,10 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
     }
   };
 
-  // define custom node style for errors
   const nodeTypes = {
     customNode: (props: NodeProps) => {
       const { data } = props;
+      // highlight node red if data.error exists
       const hasError = !!data.error;
 
       return (
@@ -144,10 +139,9 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
         </Modal.Header>
         <Modal.Body>
           {explanation ? (
-            <>
-              {/* parse the explanation as markdown */}
-              <ReactMarkdown>{explanation.description}</ReactMarkdown>
-            </>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {explanation.description}
+            </ReactMarkdown>
           ) : (
             <p>Loading explanation...</p>
           )}

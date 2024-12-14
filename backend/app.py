@@ -103,12 +103,19 @@ def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
 
     prompt = (
         "You are an AI that generates a dynamic conceptual graph of the user's Python code. "
-        "Produce enough nodes to capture distinct logic blocks or conceptual chunks, but do not create a node for every line. "
-        "If the user's code is more complex, it's okay to have more nodes, but if it’s simple, fewer nodes are acceptable. "
-        "If there's a conceptual mismatch, reference the specific line (e.g., 'if heap[index] > heap[parent]:') "
-        "and explain briefly in friendly, conceptual terms.\n\n"
-        "Output only valid JSON with 'nodes' and 'edges'. If you include errors, put them in the node itself or a top-level 'errors' array. "
-        "No code fences, no bullet points, no forced minimal or fixed node count. The final graph must be parseable.\n\n"
+        "Produce enough nodes to capture distinct logic blocks or conceptual chunks, but do not be too verbose with the nodes (i.e., create a node for every line)."
+        "Create just enough nodes so that the user can grasp the conceptual logic of their code without being overwhelmed by the details."
+        "If there's a conceptual mismatch, reference the specific line (e.g. 'if heap[index] > heap[parent]:') "
+        "AND attach the error message to the node that actually represents that logic step. "
+        "For example, if 'swap with parent' is the conceptual step where the code references 'if heap[index] > heap[parent]', "
+        "then the error belongs to the 'swap_parent' node, not just the entire push_heap function.\n\n"
+        "Error explanations should not tell the user what the code should do instead, but rather conceptually why it's wrong. "
+        "For instance: 'When Z happens, X happens instead of Y.'\n\n"
+        "Output only valid JSON with 'nodes' and 'edges'. If you include errors, put them on the node that logically corresponds to the code line. "
+        "Nodes should have position fields with small, close-together coordinates so related nodes appear visually near each other, "
+        "for example around (x: 100-300, y: 100-300). Restrict the x/y coordinates to a sufficiently small zone for all nodes. The user does NOT want nodes placed far apart.\n\n"
+        "All nodes should also be placed close together such that neighborhoods of nodes are not too spaced apart. Nodes should be as close together as possible."
+        "No code fences, no bullet points. The final graph must be parseable.\n\n"
         f"User's intent:\n{intent}\n\n"
         f"AST Nodes:\n{ast_nodes_str}\n\n"
         f"AST Edges:\n{ast_edges_str}\n\n"
@@ -144,13 +151,11 @@ def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
     # if there's a separate "errors" array, merge them into the corresponding nodes
     errors_list = conceptual_graph.get("errors", [])
     for error_item in errors_list:
-        code_ref = error_item.get("code_reference", "")
-        error_message = error_item.get("message", "")
+        error_node_id = error_item.get("id", "")
+        error_description = error_item.get("description", "")
         for node in nodes:
-            # only match if the node has 'code_reference' and it somehow matches or includes the snippet
-            node_ref = node.get("code_reference", "")
-            if code_ref and node_ref and (code_ref in node_ref or node_ref in code_ref):
-                node["error"] = error_message
+            if node.get("id") == error_node_id:
+                node['error'] = error_description
                 break
 
     # transform nodes for react flow
@@ -236,7 +241,7 @@ def get_conceptual_explanation(code, intent):
         "If there's a mismatch, reference the lines of code in plain friendly language. "
         "For instance, this would be a good sentence within the explanation: When an element is pushed to the heap, "
         "the biggest element is bubbled up to the top instead of the smallest.\n"
-        "Format the explanation in an appealing manner as markdown, using a bullet point for each line you're referencing.\n\n"
+        "Format the explanation in an appealing manner, using a bullet point for each line you're referencing.\n\n"
         "{\n"
         '  "explanation": "Short conceptual explanation referencing lines and comparing code logic to user intent."\n'
         "}\n"
