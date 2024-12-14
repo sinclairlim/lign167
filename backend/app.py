@@ -55,6 +55,8 @@ def robust_json_parse(response_text: str):
     # this function attempts multiple parsing strategies (inspired by some tips on stack overflow https://stackoverflow.com/questions/956867)
     # tries direct parse, regex extraction, substring extraction, and progressive line trimming
 
+    # this portion was partially generated with ChatGPT, while providing the above from StackOverflow for reference
+
     # --- phase 1: direct parse
     try:
         return json.loads(response_text)
@@ -142,11 +144,13 @@ def generate_dynamic_conceptual_graph(code, intent, python_ast_context):
     # if there's a separate "errors" array, merge them into the corresponding nodes
     errors_list = conceptual_graph.get("errors", [])
     for error_item in errors_list:
-        node_id = str(error_item.get("node", ""))
-        error_description = error_item.get("description", "")
+        code_ref = error_item.get("code_reference", "")
+        error_message = error_item.get("message", "")
         for node in nodes:
-            if node.get("id") == node_id:
-                node["error"] = error_description
+            # only match if the node has 'code_reference' and it somehow matches or includes the snippet
+            node_ref = node.get("code_reference", "")
+            if code_ref and node_ref and (code_ref in node_ref or node_ref in code_ref):
+                node["error"] = error_message
                 break
 
     # transform nodes for react flow
@@ -232,7 +236,7 @@ def get_conceptual_explanation(code, intent):
         "If there's a mismatch, reference the lines of code in plain friendly language. "
         "For instance, this would be a good sentence within the explanation: When an element is pushed to the heap, "
         "the biggest element is bubbled up to the top instead of the smallest.\n"
-        "Format the explanation in an appealing manner, using a bullet point for each line you're referencing.\n\n"
+        "Format the explanation in an appealing manner as markdown, using a bullet point for each line you're referencing.\n\n"
         "{\n"
         '  "explanation": "Short conceptual explanation referencing lines and comparing code logic to user intent."\n'
         "}\n"
@@ -260,22 +264,37 @@ def get_conceptual_explanation(code, intent):
         response_text = completion.choices[0].message.content.strip()
         print("OpenAI API Response (High-Level Explanation):", response_text)
 
-        # if gpt still wraps it in code fences, strip them
+        # strip any code fences
         if response_text.startswith("```") and response_text.endswith("```"):
             response_text = response_text.strip("`").strip()
             if response_text.lower().startswith("json"):
                 response_text = response_text[4:].strip()
 
-        feedback = robust_json_parse(response_text)
+        # --- NEW STEP: attempt to escape unescaped newlines within quoted strings
+        # this uses regex that finds text between quotes and replaces raw newlines with \n
+        # so that it's valid JSON
+        def escape_newlines_in_quoted_strings(m: re.Match):
+            content = m.group(0)
+            # replace unescaped newlines with \n
+            content = content.replace("\n", "\\n")
+            return content
+
+        # this regex matches any double-quoted string (including the quotes)
+        # note: DOESNT handle every JSON edge case perfectly, but works well for typical multiline GPT outputs
+        quoted_string_pattern = r'"([^"\\]*(\\.[^"\\]*)*)"'
+        sanitized_response = re.sub(quoted_string_pattern, escape_newlines_in_quoted_strings, response_text)
+
+        feedback = robust_json_parse(sanitized_response)
         if feedback is None:
-            print("Could not parse the explanation JSON. Returning raw text.")
+            print("Could not parse the explanation JSON even after newline escaping. Returning raw text.")
             feedback = {"explanation": response_text}
+
         return feedback
 
     except Exception as e:
         print(f"Error in get_conceptual_explanation: {e}")
         return {"error": str(e)}
 
+
 if __name__ == "__main__":
-    # running the flask app in debug mode (see flask docs: https://flask.palletsprojects.com/en/2.2.x/quickstart/)
     app.run(debug=True)

@@ -11,8 +11,10 @@ import ReactFlow, {
 import dagre from "dagre"; // referencing dagre layout approach: https://github.com/dagrejs/dagre
 import { getExplanation } from "../services/api";
 import { Modal, Button } from 'react-bootstrap';
+// newly installed react-markdown to display explanation as markdown
+import ReactMarkdown from "react-markdown";
 
-// informal interface naming can remain, just making sure comments are lowercase
+// interface definitions remain the same
 
 interface Explanation {
   description: string;
@@ -33,7 +35,7 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 172;
 const nodeHeight = 36;
 
-// using dagre to layout the nodes automatically (similar approach found here: https://reactflow.dev/examples/layouting/)
+// layout function using dagre
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   const isHorizontal = false;
   dagreGraph.setGraph({ rankdir: isHorizontal ? 'LR' : 'TB' });
@@ -70,55 +72,48 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 };
 
 const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
-  // local states for selected node and explanation
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [layoutedNodes, setLayoutedNodes] = useState<Node[]>([]);
   const [layoutedEdges, setLayoutedEdges] = useState<Edge[]>([]);
 
-  // effect that calculates layout using dagre whenever nodes or edges change
+  // recalculate layout whenever nodes or edges change
   useEffect(() => {
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);
-    setLayoutedNodes(layoutedNodes);
-    setLayoutedEdges(layoutedEdges);
+    const { nodes: layouted, edges: layoutedEdgs } = getLayoutedElements(nodes, edges);
+    setLayoutedNodes(layouted);
+    setLayoutedEdges(layoutedEdgs);
   }, [nodes, edges]);
 
-  // handling a node click to show explanation
+  // handle node click
   const onNodeClick = async (_event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setShowModal(true);
-  
+
     if (node.data.error) {
-      // if there's an error, we store it as the explanation
-      setExplanation({
-        description: node.data.error,
-      });
+      setExplanation({ description: node.data.error });
     } else {
-      // otherwise, no error
-      setExplanation({
-        description: 'No errors in this node.',
-      });
+      setExplanation({ description: "No errors in this node." });
     }
   };
 
-  // define custom node types for react flow to highlight errors
+  // define custom node style for errors
   const nodeTypes = {
     customNode: (props: NodeProps) => {
       const { data } = props;
-      const hasError = data.error && data.error.length > 0;
-  
+      const hasError = !!data.error;
+
       return (
         <div
           style={{
             padding: 10,
-            border: '1px solid',
-            borderColor: hasError ? 'red' : '#222',
-            backgroundColor: hasError ? '#ffe6e6' : '#fff',
+            border: "1px solid",
+            borderColor: hasError ? "red" : "#222",
+            backgroundColor: hasError ? "#ffe6e6" : "#fff",
             borderRadius: 5,
-            textAlign: 'center',
+            textAlign: "center",
             minWidth: nodeWidth,
-            cursor: 'pointer', // indicate that the node is clickable
+            cursor: "pointer",
           }}
         >
           <strong>{data.label}</strong>
@@ -129,7 +124,7 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
 
   return (
     <>
-      <div style={{ width: '100%', height: '500px' }}>
+      <div style={{ width: "100%", height: "500px" }}>
         <ReactFlow
           nodes={layoutedNodes}
           edges={layoutedEdges}
@@ -142,25 +137,25 @@ const FlowNodeComponent: React.FC<FlowNodeProps> = ({ nodes, edges }) => {
           <Background />
         </ReactFlow>
       </div>
-      <Modal
-        show={showModal}
-        onHide={() => setShowModal(false)}
-        animation={false}
-      >
+
+      <Modal show={showModal} onHide={() => setShowModal(false)} animation={false}>
         <Modal.Header closeButton>
           <Modal.Title>Node Explanation</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {explanation ? (
             <>
-              <p><strong>Description:</strong> {explanation.description}</p>
+              {/* parse the explanation as markdown */}
+              <ReactMarkdown>{explanation.description}</ReactMarkdown>
             </>
           ) : (
             <p>Loading explanation...</p>
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>Close</Button>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            Close
+          </Button>
         </Modal.Footer>
       </Modal>
     </>
